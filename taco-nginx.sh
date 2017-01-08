@@ -31,6 +31,7 @@ while true; do
     --https-port)      HTTPS_PORT=$2; shift; shift ;;
     --http-only)       HTTP_ONLY=true; shift ;;
     --https-only)      HTTPS_ONLY=true; shift ;;
+    --public)          PUBLIC="$2"; shift; shift ;;
     *)                 break ;;
   esac
 done
@@ -40,7 +41,7 @@ if $VERSION; then
   exit
 fi
 
-if $HELP || [ "$1" == "" ]; then
+if $HELP; then
 cat << EOF
 Usage: taco-nginx [run-opts] command arg1 ...
   --name, -n           [service-name]
@@ -81,16 +82,16 @@ LISTEN_HTTP="listen $HTTP_PORT;"
 $HTTPS_ONLY && LISTEN_HTTP=""
 $HTTP_ONLY && LISTEN_HTTPS=""
 
-on_sigterm () {
-  $SOFT_EXIT && sleep 5
-  kill $PID
-  wait $PID
-}
+# on_sigterm () {
+#   $SOFT_EXIT && sleep 5
+#   kill $PID
+#   wait $PID
+# }
 
-on_exit () {
-  $SUDO_MAYBE rm -f /etc/nginx/conf.d/$SERVICE_NAME.conf
-  $SUDO_MAYBE nginx -s reload
-}
+# on_exit () {
+#   rm -f /etc/nginx/conf.d/$SERVICE_NAME.conf
+#   $SUDO_MAYBE nginx -s reload
+# }
 
 on_ready () {
 cat << EOF > /tmp/nginx.$SERVICE_NAME.$PORT.conf
@@ -102,6 +103,12 @@ server {
   $LISTEN_HTTP
   server_name $DOMAIN;
   location / {
+    root $PUBLIC;
+    index index.html;
+    try_files \$uri @service;
+    access_log off;
+  }
+  location @service {
     proxy_pass http://$SERVICE_NAME;
     proxy_set_header X-Forwarded-For \$remote_addr;
     proxy_buffering off;
@@ -115,23 +122,23 @@ server {
 EOF
 
   [ ! -O /etc/nginx/conf.d ] && SUDO_MAYBE=sudo
-  $SUDO_MAYBE mv /tmp/nginx.$SERVICE_NAME.$PORT.conf /etc/nginx/conf.d/$SERVICE_NAME.conf
+  mv /tmp/nginx.$SERVICE_NAME.$PORT.conf /etc/nginx/conf.d/$SERVICE_NAME.conf
   $SUDO_MAYBE nginx -s reload
-  trap on_exit EXIT
+  # trap on_exit EXIT
 
-  wait $PID
-  exit $?
+  # wait $PID
+  # exit $?
 }
 
-trap on_sigterm SIGTERM
+# trap on_sigterm SIGTERM
 PATH="node_modules/.bin:$PATH"
 
-"$@" &
-PID=$!
+# "$@" &
+# PID=$!
 
-for i in {1..20}; do
-  lsof -p $PID 2>/dev/null | grep "TCP \*:$PORT" 2>/dev/null >/dev/null && on_ready
-  sleep 0.2
-done;
+# for i in {1..20}; do
+#   lsof -p $PID 2>/dev/null | grep "TCP \*:$PORT" 2>/dev/null >/dev/null && on_ready
+#   sleep 0.2
+# done;
 
 on_ready

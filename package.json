@@ -1,0 +1,13 @@
+{
+  "name": "deploy",
+  "version": "1.0.0",
+  "description": "Tweaked combo of tj/deploy and mafintosh/taco-nginx",
+  "main": "index.js",
+  "scripts": {},
+  "bin": {
+    "taco-nginx": "./taco-nginx.sh",
+    "deploy": "./deploy.sh"
+  },
+  "author": "",
+  "license": "ISC"
+}
